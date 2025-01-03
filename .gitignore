@@ -1,3 +1,19 @@
 
 *.pyc
 *.pt
+
+venv/
+__pycache__
+assets/
+config/
+data/
+docs/
+makedocs/
+utils/
+vehicle_detection/
+weights/
+radiate.py
+README.md
+setup.py
+__init__.py
+_config.yml

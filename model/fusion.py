@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from ensemble_boxes import *
+# from ensemble_boxes import *
 import copy
 
 
@@ -32,7 +32,7 @@ class FusionBlock(nn.Module):
 
         R = np.array([[1, 0, 0],
                       [0, 0, 1],
-                      [0, -1, 0]]).astype(np.float)
+                      [0, -1, 0]]).astype(np.float64)
         R = np.matmul(R, np.matmul(Rx, np.matmul(Ry, Rz)))
 
         LidarToCam = np.array([[R[0, 0], R[0, 1], R[0, 2], 0.0],
@@ -46,7 +46,7 @@ class FusionBlock(nn.Module):
         thetaX = np.deg2rad(LidarToCamR[0])
         Rx = np.array([[1, 0, 0],
                        [0, np.cos(thetaX), -np.sin(thetaX)],
-                       [0, np.sin(thetaX), np.cos(thetaX)]]).astype(np.float)
+                       [0, np.sin(thetaX), np.cos(thetaX)]]).astype(np.float64)
         return Rx
 
     ''' Function from the RADIATE SDK'''
@@ -62,7 +62,7 @@ class FusionBlock(nn.Module):
         thetaZ = np.deg2rad(LidarToCamR[2])
         Rz = np.array([[np.cos(thetaZ), -np.sin(thetaZ), 0],
                        [np.sin(thetaZ), np.cos(thetaZ), 0],
-                       [0, 0, 1]]).astype(np.float)
+                       [0, 0, 1]]).astype(np.float64)
         return Rz
     
     ''' Function from the RADIATE SDK'''
