@@ -4,6 +4,7 @@ from model.gate import DeepGatingModule
 from model.hydranet import HydraFusion
 from config import Config
 from demo import get_data_loaders
+import torch.nn.functional as F
 
 LABEL_DICT = {
     "car": 0,
@@ -27,8 +28,11 @@ def load_hydrafusion_model(config, checkpoint_path):
 # Step 2: Extract stem outputs and branch losses
 def extract_stem_outputs_and_losses(model, loader, config):
     stem_outputs, branch_losses = [], []
+    batch_num = 0
     with torch.no_grad():
         for batch in loader:
+            batch_num += 1
+            print(f"Processing batch : {batch_num}")
             radar = batch['radar'].to(config.device)
             lidar = batch['lidar'].to(config.device)
             camera_left = batch['camera_left'].to(config.device)
@@ -66,6 +70,11 @@ def extract_stem_outputs_and_losses(model, loader, config):
             stem_outputs.append(stem_outs)
             branch_losses.append({k: sum(v.values()) for k, v in losses.items()})
 
+    torch.save({
+        'stem_outputs': stem_outputs,
+        'branch_losses': branch_losses
+    }, 'stem_branch_data.pt')
+
     return stem_outputs, branch_losses
 
 # Step 3: Train the Gating Module
@@ -74,7 +83,8 @@ def train_gating_module(stem_outputs, branch_losses, config):
     optimizer = torch.optim.Adam(gating_model.parameters(), lr=5e-5)
     criterion = torch.nn.L1Loss()
 
-    stem_tensors = [torch.cat([v.flatten() for v in outputs.values()], dim=0) for outputs in stem_outputs]
+    # stem_tensors = [torch.cat([v.flatten() for v in outputs.values()], dim=0) for outputs in stem_outputs]
+    stem_tensors = [torch.cat([v for v in outputs.values()], dim=1) for outputs in stem_outputs]
     loss_tensors = [torch.tensor([v for v in losses.values()], device=config.device) for losses in branch_losses]
 
     dataset = list(zip(stem_tensors, loss_tensors))
@@ -87,6 +97,10 @@ def train_gating_module(stem_outputs, branch_losses, config):
             batch_stems = batch_stems.to(config.device)
             batch_losses = batch_losses.to(config.device)
 
+            batch_stems = batch_stems.view(batch_stems.size(0), -1, batch_stems.size(-2), batch_stems.size(-1))
+            batch_stems = F.conv2d(batch_stems, weight=torch.randn(3, 256, 1, 1).to(config.device))
+            print(batch_stems.shape)
+
             predictions = gating_model(batch_stems)
             loss = criterion(predictions, batch_losses)
 
@@ -94,6 +108,7 @@ def train_gating_module(stem_outputs, branch_losses, config):
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
+            break
         print(f"Epoch {epoch+1}, Loss: {total_loss:.4f}")
         torch.save(gating_model.state_dict(), f"gating_model_{epoch}.pth")
     
@@ -103,14 +118,20 @@ def main():
     args = []
     config = Config(args)
 
-    train_loader, _ = get_data_loaders()
+    # train_loader, _ = get_data_loaders()
 
-    # Load pre-trained HydraFusion model
-    hydrafusion_model = load_hydrafusion_model(config, "weights/model_weights_epoch_1_lr_5e3.pth")
+    # # Load pre-trained HydraFusion model
+    # hydrafusion_model = load_hydrafusion_model(config, "weights/model_weights_epoch_1_lr_5e3.pth")
 
-    # Extract stem outputs and branch losses
-    print("Extracting stem outputs and branch losses...")
-    stem_outputs, branch_losses = extract_stem_outputs_and_losses(hydrafusion_model, train_loader, config)
+    # # Extract stem outputs and branch losses
+    # print("Extracting stem outputs and branch losses...")
+    # stem_outputs, branch_losses = extract_stem_outputs_and_losses(hydrafusion_model, train_loader, config)
+
+    data = torch.load('stem_branch_data.pt')
+    stem_outputs = data['stem_outputs']
+    branch_losses = data['branch_losses']
+
+    # print((stem_outputs[0]))
 
     # Train the Gating Module
     print("Training the Gating Module...")
