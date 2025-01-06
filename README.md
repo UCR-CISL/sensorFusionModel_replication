@@ -1,4 +1,4 @@
-# References
+# References/Citations
 
 This document references the following resources and tools used in our project:
 
@@ -8,4 +8,9 @@ This document references the following resources and tools used in our project:
 
 2. **Radiate SDK**  
    Repository: [Radiate SDK on GitHub](https://github.com/marcelsheeny/radiate_sdk)  
-   Description: The Radiate SDK is a framework aimed at working with radar datasets. It simplifies data handling, preprocessing, and analysis for research and development in radar-related applications.
+   Description: The Radiate SDK is a framework aimed at working with radar datasets. It simplifies data handling, preprocessing, and analysis for research and development in radar-related applications.4
+
+### List of added functionalities (in progress)
+- Data Loading and Processing
+- Hydranet model training script
+- Gating Module (currently focusing on DeepGatingModule) training script
