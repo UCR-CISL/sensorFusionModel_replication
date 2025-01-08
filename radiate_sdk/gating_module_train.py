@@ -4,7 +4,6 @@ from model.gate import DeepGatingModule
 from model.hydranet import HydraFusion
 from config import Config
 from demo import get_data_loaders
-import torch.nn.functional as F
 
 LABEL_DICT = {
     "car": 0,
@@ -79,16 +78,30 @@ def extract_stem_outputs_and_losses(model, loader, config):
 
 # Step 3: Train the Gating Module
 def train_gating_module(stem_outputs, branch_losses, config):
-    gating_model = DeepGatingModule(input_channels=3, output_shape=7, dropout=0.5).to(config.device)
+    gating_model = DeepGatingModule(input_channels=64, output_shape=6, dropout=0.5).to(config.device)
     optimizer = torch.optim.Adam(gating_model.parameters(), lr=5e-5)
     criterion = torch.nn.L1Loss()
 
-    # stem_tensors = [torch.cat([v.flatten() for v in outputs.values()], dim=0) for outputs in stem_outputs]
-    stem_tensors = [torch.cat([v for v in outputs.values()], dim=1) for outputs in stem_outputs]
-    loss_tensors = [torch.tensor([v for v in losses.values()], device=config.device) for losses in branch_losses]
+    downsampler = torch.nn.AdaptiveAvgPool2d((5, 5))
+    stem_tensors = []
+    loss_tensors = []
+
+    for outputs, losses in zip(stem_outputs, branch_losses):
+        radar = downsampler(outputs["radar"])
+        lidar = downsampler(outputs["lidar"])
+        camera_left = downsampler(outputs["camera_left"])
+        camera_right = downsampler(outputs["camera_right"])
+
+        combined = torch.cat([radar, lidar, camera_left, camera_right], dim=0)  # Shape: [4, 64, 5, 5]
+        
+        stem_tensors.append(combined)
+        loss_tensors.append(torch.tensor([v for v in losses.values()], device=config.device))
+    
+    stem_tensors = torch.cat(stem_tensors, dim=0)
+    loss_tensors = torch.stack(loss_tensors)
 
     dataset = list(zip(stem_tensors, loss_tensors))
-    loader = DataLoader(dataset, batch_size=1, shuffle=True)
+    loader = DataLoader(dataset, batch_size=32, shuffle=True)
 
     gating_model.train()
     for epoch in range(5):
@@ -96,22 +109,21 @@ def train_gating_module(stem_outputs, branch_losses, config):
         for batch_stems, batch_losses in loader:
             batch_stems = batch_stems.to(config.device)
             batch_losses = batch_losses.to(config.device)
-
-            batch_stems = batch_stems.view(batch_stems.size(0), -1, batch_stems.size(-2), batch_stems.size(-1))
-            batch_stems = F.conv2d(batch_stems, weight=torch.randn(3, 256, 1, 1).to(config.device))
-            print(batch_stems.shape)
+            # single_loss_sample = batch_losses[0].to(config.device)
+            # print(len(batch_losses))
 
             predictions = gating_model(batch_stems)
-            loss = criterion(predictions, batch_losses)
+            loss = 0
+            for batch_loss in batch_losses:
+                loss += criterion(predictions, batch_loss)
+            loss /=32
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
-            break
         print(f"Epoch {epoch+1}, Loss: {total_loss:.4f}")
         torch.save(gating_model.state_dict(), f"gating_model_{epoch}.pth")
-    
     torch.save(gating_model.state_dict(), "gating_model.pth")
 
 def main():
@@ -131,7 +143,13 @@ def main():
     stem_outputs = data['stem_outputs']
     branch_losses = data['branch_losses']
 
-    # print((stem_outputs[0]))
+    # print(branch_losses[0])
+    # print("Stem output")
+    # print(stem_outputs[0]["radar"].shape)
+    # print(stem_outputs[0]["lidar"].shape)
+    # print(stem_outputs[0]["camera_left"].shape)
+    # print(stem_outputs[0]["camera_right"].shape)
+    #print(branch_losses)
 
     # Train the Gating Module
     print("Training the Gating Module...")

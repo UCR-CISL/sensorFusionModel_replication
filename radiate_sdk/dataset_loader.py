@@ -23,7 +23,7 @@ class RadiateDataset:
         self.sequence = radiate.Sequence(sequence_path)
 
         # Extract timestamps
-        self.timestamps = np.arange(self.sequence.init_timestamp, self.sequence.end_timestamp, 0.25)
+        self.timestamps = np.arange(self.sequence.init_timestamp, self.sequence.end_timestamp, 1)
 
         # Initialize transformations
         self.resize = Resize(self.input_size)
