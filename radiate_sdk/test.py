@@ -143,13 +143,15 @@ def main():
     # Load trained weights
     model.load_state_dict(torch.load("weights/model_weights_epoch_1_lr_5e3.pth"))
 
-    # Load test data
-    _, test_loader = get_data_loaders()
+    print(model)
 
-    # Test the model and visualize predictions
-    print("Starting Testing and Visualization...")
-    # test_model(model, test_loader, config)
-    test_model_simply(model, test_loader, config)
+    # Load test data
+    # _, test_loader = get_data_loaders()
+
+    # # Test the model and visualize predictions
+    # print("Starting Testing and Visualization...")
+    # # test_model(model, test_loader, config)
+    # test_model_simply(model, test_loader, config)
 
 if __name__ == "__main__":
     main()

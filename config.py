@@ -19,7 +19,7 @@ class Config:
         self.parser.add_argument('--enable_lidar', type=bool, default=True)
         self.parser.add_argument('--enable_cam_fusion', type=bool, default=True)
         self.parser.add_argument('--enable_radar_lidar_fusion', type=bool, default=True)
-        self.parser.add_argument('--enable_cam_lidar_fusion', type=bool, default=False)
+        self.parser.add_argument('--enable_cam_lidar_fusion', type=bool, default=True)
 
 
         args_parsed = self.parser.parse_args(args)

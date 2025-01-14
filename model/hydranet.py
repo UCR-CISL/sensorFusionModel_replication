@@ -87,12 +87,9 @@ class HydraFusion(nn.Module):
 
         branch_selection = []
         output_losses, output_detections = {}, {}
-        # Only process radar_y if it is provided
-        if radar_y is not None:
-            radar_y = self.fix_targets(radar_y)
-        # Only process cam_y if it is provided
-        if cam_y is not None:
-            cam_y = self.fix_targets(cam_y)
+
+        radar_y = self.fix_targets(radar_y)
+        cam_y = self.fix_targets(cam_y)
 
         if self.config.enable_radar:
             radar_x, radar_y = self.radar_transform(radar_x, radar_y)

@@ -5,7 +5,7 @@ from torch.utils.data.dataloader import default_collate
 from dataset_loader import RadiateDataset
 
 # Configuration constants
-DATASET_PATH = 'E:/sudhanshu/radiate'
+DATASET_PATH = '/media/sudhanshu/Janice/sudhanshu/radiate'
 BATCH_SIZE = 1
 TRAIN_SPLIT_RATIO = 0.7
 

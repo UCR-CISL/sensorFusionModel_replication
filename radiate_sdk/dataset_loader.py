@@ -23,7 +23,7 @@ class RadiateDataset:
         self.sequence = radiate.Sequence(sequence_path)
 
         # Extract timestamps
-        self.timestamps = np.arange(self.sequence.init_timestamp, self.sequence.end_timestamp, 0.25)
+        self.timestamps = np.arange(self.sequence.init_timestamp, self.sequence.end_timestamp, 1)
 
         # Initialize transformations
         self.resize = Resize(self.input_size)
@@ -51,7 +51,10 @@ class RadiateDataset:
         """
         lidar_tensor = ToTensor()(lidar_data)
         return self.resize(lidar_tensor)
-
+    
+    def preprocess_left_right_lidar_proj(self, lidar):
+        lidar_tensor = ToTensor()(lidar)
+        return self.resize(lidar_tensor).float()
 
     def preprocess_camera(self, camera_data):
         """
@@ -103,6 +106,8 @@ class RadiateDataset:
         lidar = self.get_sensor_data(data['sensors'], 'lidar_bev_image', self.preprocess_lidar)
         left_camera = self.get_sensor_data(data['sensors'], 'camera_left_rect', self.preprocess_camera)
         right_camera = self.get_sensor_data(data['sensors'], 'camera_right_rect', self.preprocess_camera)
+        lidar_right = self.get_sensor_data(data['sensors'], 'proj_lidar_right', self.preprocess_left_right_lidar_proj)
+        lidar_left = self.get_sensor_data(data['sensors'], 'proj_lidar_left', self.preprocess_left_right_lidar_proj)
 
         # Extract and validate annotations
         annotations = data.get('annotations', {})
@@ -130,6 +135,8 @@ class RadiateDataset:
             'lidar': lidar,
             'camera_left': left_camera,
             'camera_right': right_camera,
+            'lidar_right': lidar_right,
+            'lidar_left': lidar_left,
             'bboxes': bboxes,
             'classes': classes
         }

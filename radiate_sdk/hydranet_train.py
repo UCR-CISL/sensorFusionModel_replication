@@ -34,6 +34,8 @@ def train_model(model, train_loader, config):
             lidar = batch['lidar'].to(config.device)
             camera_left = batch['camera_left'].to(config.device)
             camera_right = batch['camera_right'].to(config.device)
+            lidar_right = batch['lidar_right'].to(config.device)
+            lidar_left = batch['lidar_left'].to(config.device)
             bboxes = batch['bboxes']
             classes = batch['classes']
 
@@ -54,6 +56,8 @@ def train_model(model, train_loader, config):
                 rightcamera_x=camera_right,
                 radar_x=radar,
                 bev_lidar_x=lidar,
+                l_lidar_x=lidar_left,
+                r_lidar_x=lidar_right,
                 radar_y=targets,
                 cam_y=targets
             )
