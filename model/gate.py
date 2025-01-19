@@ -23,18 +23,26 @@ class DeepGatingModule(GateModule):
         self.c3 = nn.Conv2d(16, 8, 3, 1, 1)
         self.bn3 = nn.BatchNorm2d(8, 8)
         self.maxpool = nn.MaxPool2d(3, 1, 1)
-        self.l1 = nn.Linear(3584, output_shape)
+        self.l1 = nn.Linear(648, output_shape)
         self.activation = F.relu
         self.dropout = dropout
 
 
     def forward(self, x):
+        # print('1 x => ', x.shape)
         x = self.activation(self.bn1(self.c1(x)))
+        # print('2 x => ', x.shape)
         x = self.activation(self.bn2(self.c2(x)))
+        # print('3 x => ', x.shape)
         x = self.activation(self.bn3(self.c3(x)))
+        # print('4 x => ', x.shape)
         x = F.dropout(x, p=self.dropout, training=self.training)
+        # print('5 x => ', x.shape)
         x = self.maxpool(x)
-        x = torch.flatten(x)
+        # print('6 x => ', x.shape)
+        x = torch.flatten(x, start_dim=1)
+        # print('7 x => ', x.shape)
+        # print('8 x => ', self.l1(x).shape)
         return self.l1(x)
 
 

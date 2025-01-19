@@ -101,14 +101,10 @@ def extract_stem_outputs_and_losses(model, loader, config):
 def train_gating_module(stem_outputs, branch_losses, config):
     gating_model = DeepGatingModule(input_channels=64, output_shape=7, dropout=0.5).to(config.device)
     optimizer = torch.optim.Adam(gating_model.parameters(), lr=5e-5)
-    criterion = torch.nn.L1Loss()
-
-    downsampler = torch.nn.AdaptiveAvgPool2d((5, 5))
-    # stem_tensors = []
-    # loss_tensors = []
+    criterion = torch.nn.L1Loss(reduction='none')
 
     num_samples = len(stem_outputs)
-    combined_shape = (4, 64, 5, 5)  # Shape of each combined tensor
+    combined_shape = (4, 64, 56, 56)  # Shape of each combined tensor
 
     stem_tensors = torch.empty((num_samples, *combined_shape))
 
@@ -116,56 +112,26 @@ def train_gating_module(stem_outputs, branch_losses, config):
     loss_tensors = torch.empty((num_samples, num_losses))
 
     for i, (outputs, losses) in enumerate(zip(stem_outputs, branch_losses)):
-        radar = downsampler(outputs["radar"])
-        lidar = downsampler(outputs["lidar"])
-        camera_left = downsampler(outputs["camera_left"])
-        camera_right = downsampler(outputs["camera_right"])
+        radar = outputs["radar"]
+        lidar = outputs["lidar"]
+        camera_left = outputs["camera_left"]
+        camera_right = outputs["camera_right"]
 
         combined = torch.cat([radar, lidar, camera_left, camera_right], dim=0)  # Shape: [4, 64, 5, 5]
 
         stem_tensors[i] = combined
         loss_tensors[i] = torch.tensor([v for v in losses.values()])
 
-    # for outputs, losses in zip(stem_outputs, branch_losses):
-    #     radar = downsampler(outputs["radar"])
-    #     lidar = downsampler(outputs["lidar"])
-    #     camera_left = downsampler(outputs["camera_left"])
-    #     camera_right = downsampler(outputs["camera_right"])
+    k = 3
 
-    #     # combined = torch.cat([radar, lidar, camera_left, camera_right], dim=0)  # Shape: [4, 64, 5, 5]
-    #     combined = torch.stack([radar, lidar, camera_left, camera_right], dim=0)
-
-    #     stem_tensors.append(combined)
-    #     loss_tensors.append(torch.tensor([v for v in losses.values()], device=config.device))
-
-    # loss_tensors = torch.stack(loss_tensors)
-
-    stem_tensors_gpu = stem_tensors.to('cuda')
-    loss_tensors_gpu = loss_tensors.to('cuda')
-
-    dataset = list(zip(stem_tensors_gpu, loss_tensors_gpu))
+    dataset = list(zip(stem_tensors, loss_tensors))
     loader = DataLoader(dataset, batch_size=32, shuffle=True)
 
     gating_model.train()
-    for epoch in range(5):
+    for epoch in range(10):
         total_loss = 0
+        print(f"Epoch {epoch}")
         for batch_stems, batch_losses in loader:
-            # batch_stems = batch_stems.to(config.device)
-            # batch_losses = batch_losses.to(config.device)
-            # single_loss_sample = batch_losses[0].to(config.device)
-            # print(len(batch_losses))
-
-            # for i in range(4):  # batch_stems.size(1) = 4
-            #     sensor_tensor = batch_stems[:, i, :, :, :]
-            #     predictions = gating_model(sensor_tensor)
-            #     print(predictions)
-            #     return
-
-            # loss = 0
-            # for batch_loss in batch_losses:
-            #     loss += criterion(predictions, batch_loss)
-            # loss /=32
-
 
             sensor_tensors = []
 
@@ -173,24 +139,31 @@ def train_gating_module(stem_outputs, branch_losses, config):
                 sensor_tensor = batch_stems[:, i, :, :, :]
                 sensor_tensors.append(sensor_tensor)
 
-            predictions_list = []
+            aggregated_losses = []
 
              # Forward pass for each sensor
             for sensor_tensor in sensor_tensors:
                 predictions = gating_model(sensor_tensor)
-                predictions_list.append(predictions)
+                branch_losses_tensor = criterion(predictions, batch_losses).mean(dim=0)
+                # print('1', branch_losses_tensor)
+                _, top_k_indices = torch.topk(branch_losses_tensor, k, largest=False)
+                # print('2', top_k_indices)
+                top_k_loss_tensor = branch_losses_tensor[top_k_indices]
+                # print('3', top_k_loss_tensor)
+                aggregated_losses.append(top_k_loss_tensor.mean())
 
-            combined_predictions = torch.stack(predictions_list).mean(dim=0)
-            aggregated_batch_losses = batch_losses.mean(dim=0)
+            final_loss = torch.stack(aggregated_losses).mean()
+            # print('4', final_loss)
 
-            loss = criterion(combined_predictions, aggregated_batch_losses)
             optimizer.zero_grad()
-            loss.backward()
+            final_loss.backward()
             optimizer.step()
-            total_loss += loss.item()
+
+            total_loss += final_loss.item()
+            # print(f"Current Loss: {total_loss}")
         print(f"Epoch {epoch+1}, Loss: {total_loss:.4f}")
-        torch.save(gating_model.state_dict(), f"gating_model_{epoch}.pth")
-    torch.save(gating_model.state_dict(), "gating_model.pth")
+        # torch.save(gating_model.state_dict(), f"gating_model_{epoch}.pth")
+    # torch.save(gating_model.state_dict(), "gating_model.pth")
 
 def main():
     args = []
